@@ -1,0 +1,23 @@
+{
+  "policy_version": "jev-gate-v1",
+  "thresholds": {
+    "jev": {
+      "_basis": "H7: confidence separates clear from ambiguous (0.927 vs 0.414, AUROC 0.973). 0.9 act band per the docs' three-band pattern; content-check thresholds 0.5 with the 0.45-0.55 abstention band carved out in policy.",
+      "act_confidence": 0.90,
+      "deny_prob": 0.50,
+      "sandbox_prob": 0.50,
+      "cred_check": 0.50,
+      "outside_check": 0.50
+    },
+    "claude": {
+      "_basis": "H7: confidence does NOT separate clear from ambiguous (0.941 vs 0.690, AUROC 0.960) and Claude leaked 3/5 ambiguous items to allow. act_confidence above 1.0 = confidence alone can never authorize action; ambiguous always routes to a human. Content checks still act at 0.5.",
+      "act_confidence": 1.01,
+      "deny_prob": 0.50,
+      "sandbox_prob": 0.50,
+      "cred_check": 0.50,
+      "outside_check": 0.50
+    }
+  },
+  "force_block_tools": [],
+  "force_allow_tools": []
+}

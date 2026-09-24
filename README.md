@@ -162,9 +162,16 @@ tokens, dropped state fields, and abstentions.
       direction (Jev's ambiguous misses route to adjacent lanes, Claude's
       route to allow). Full report: `results/h7_report.md`
 - [x] **H8** — NOTES.md: findings, jagged edges held vs. broke, open threads
-- [ ] Then: the OPA/Rego policy layer — judge emits `{label, confidence,
-      checks}` → Rego routes (thresholds in data, fail-closed, `opa test`
-      cases for judge-unreachable) → structured decision doc for audit
+- [x] **The OPA/Rego policy layer** (`policy/`) — judge emits typed decision →
+      Rego routes: thresholds in `data.json` (per provider, evidence-cited),
+      fail-closed defaults, force-block/force-allow overrides, abstention →
+      human, 20 `opa test` cases, and `decide.py` (runner + offline replay).
+      Replay of the H7 logs through policy: Jev 14/20 with **zero
+      ambiguous→allow** (the confidence hatch converts would-be leaks into
+      human review); Claude 7/20 — its confidence never authorizes action
+      (by design, per H7), so it runs as a content-checks-only judge where
+      everything else routes to humans. Full detail in NOTES.md
+- [ ] Then: port to prodsec-lab as the agent-gateway defense (P3)
 
 ## Notes
 
