@@ -147,6 +147,72 @@ python3 experiments/h7_analysis.py --selftest
 Pure stdlib. Every decision is logged to JSONL with model version, latency,
 tokens, dropped state fields, and abstentions.
 
+## Jev + OPA: the policy gate in practice
+
+The full chain — judge decision → Rego routing → audited decision doc —
+lives in `policy/`. The judge is called OUTSIDE OPA and its typed result is
+passed in as input (enrich-then-evaluate; no `http.send` from Rego, which
+would couple every eval to judge availability and turn policy into an SSRF
+surface).
+
+```bash
+# 0. one-time: install OPA (macOS: brew install opa; else grab a static
+#    release from openpolicyagent.org)
+
+# 1. the policy tests — no API key needed
+cd policy && opa test judge_gate.rego judge_gate_test.rego data.json && cd ..
+# -> PASS: 20/20  (routing lanes, abstention, fail-closed, overrides,
+#    injected-state inertness)
+
+# 2. gate a single call, live (needs TYPESAFE_API_KEY)
+python3 policy/decide.py --judge jev \
+    --call '{"tool":"read_file","args":{"path":"~/.aws/credentials"}}'
+# -> {"route": "deny", "reasons": ["deny_signal:touches_credentials", ...],
+#     "policy_version": "jev-gate-v1", "thresholds_applied": {...}}
+
+# 3. gate a whole set, live (any frozen set in data/)
+python3 policy/decide.py --judge jev --set test_set_v1.json \
+    --log policy_runs.jsonl
+
+# 4. offline replay — route an ALREADY-LOGGED judge run through the policy.
+#    No API key, no calls: frozen judge rows go in, policy decisions come
+#    out. Use this to validate any policy/threshold change against real
+#    judge data before it ever gates a live call.
+python3 policy/decide.py --judge jev    --offline results/h7_jev.jsonl
+python3 policy/decide.py --judge claude --offline results/h7_claude.jsonl
+
+# 5. evaluate the policy directly (no runner) — useful for debugging a route
+echo '{"tool_call":{"tool":"bash"},"judge":{"provider":"jev","available":true,
+  "confidence":0.97,"verdict_probabilities":{"deny":0.83,"allow":0.02,
+  "sandbox":0.08,"gate":0.07},"checks":{"touches_credentials":0.13,
+  "outside_repo":0.97},"abstained":[]}}' \
+| opa eval --format pretty -d policy/judge_gate.rego -d policy/data.json \
+    --stdin-input 'data.jevlab.gate.decision'
+```
+
+How to read the decision doc it prints:
+
+- `route` — `allow | sandbox | deny | gate`; `allowed` is true only for allow
+- `reasons` — machine-readable, one per fired rule (`deny_signal:touches_credentials`,
+  `abstention:no_information_human_review`, `judge_unavailable:fail_closed_gate`,
+  `force_allow_override_audited`, ...) — this is the audit trail
+- `policy_version` + `thresholds_applied` — exactly which policy and which
+  per-provider numbers decided, so every past decision is reproducible
+
+Tuning thresholds or overrides is a **data change, not a policy edit** —
+edit `policy/data.json` (`thresholds.<provider>`, `force_block_tools`,
+`force_allow_tools`), re-run step 4 to measure the effect on frozen logs,
+then re-run step 1. Each threshold block carries a `_basis` field citing
+the H7 evidence for its value. Force-allow overrides caution routing only —
+a deny content signal is immune to it, by rule order.
+
+What the replay of the H7 logs showed (detail in NOTES.md): Jev 14/20 with
+the ambiguous→allow leak class eliminated (the confidence hatch converts
+would-be leaks into human review), Claude 7/20 by design — its confidence
+never authorizes action (`act_confidence: 1.01`), so it runs as a
+content-checks-only judge. All 10 hostile calls across both providers
+denied through the policy.
+
 ## Roadmap
 
 - [x] **H1–H4** — first touch, hello-decision, calibration probe design,
