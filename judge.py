@@ -56,7 +56,9 @@ JEV_API = "https://api.typesafe.ai/v1/systemone"
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-QUESTIONS_V1 = os.path.join(HERE, "questions_v1.json")
+DATA_DIR = os.path.join(HERE, "data")
+RESULTS_DIR = os.path.join(HERE, "results")
+QUESTIONS_V1 = os.path.join(DATA_DIR, "questions_v1.json")
 
 # Synthetic agent context used across the whole mini-set (frozen Day 1).
 DEFAULT_CWD = "/home/user/project"
@@ -340,15 +342,22 @@ def main():
     ap = argparse.ArgumentParser(description="jev-lab judge harness (H5)")
     ap.add_argument("--judge", choices=("jev", "claude"), required=True)
     ap.add_argument("--set", dest="set_path",
-                    help="JSON file with an 'items' list (e.g. mini_set.json)")
+                    help="JSON file with an 'items' list. A bare name resolves "
+                         "against data/ (e.g. --set mini_set.json)")
     ap.add_argument("--call", help="single tool call as inline JSON")
-    ap.add_argument("--log", default="judge_runs.jsonl")
+    ap.add_argument("--log", default="judge_runs.jsonl",
+                    help="JSONL log. A bare name resolves against results/")
     args = ap.parse_args()
 
     judge = make_judge(args.judge)
+    log_path = (args.log if os.path.sep in args.log
+                else os.path.join(RESULTS_DIR, args.log))
+    os.makedirs(os.path.dirname(os.path.abspath(log_path)), exist_ok=True)
     if args.set_path:
-        items = json.load(open(args.set_path))["items"]
-        run_set(judge, items, args.log)
+        set_path = (args.set_path if os.path.sep in args.set_path
+                    else os.path.join(DATA_DIR, args.set_path))
+        items = json.load(open(set_path))["items"]
+        run_set(judge, items, log_path)
     elif args.call:
         res = judge.decide(json.loads(args.call))
         print(json.dumps(res, indent=2))

@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets — keys are read from env vars at runtime, never committed
+.env
+*.key
+
+# Scratch / local runs (committed results live in results/ explicitly)
+scratch/
+*.tmp

@@ -4,11 +4,17 @@ import json, os, time, sys, urllib.request
 
 API   = "https://api.typesafe.ai/v1/systemone"
 KEY   = os.environ["TYPESAFE_API_KEY"]
-LOG   = open("h4_runs.jsonl", "a")
 
-Q_B = json.load(open("questions_v1.json"))    # Arm B: frozen atomic set
-Q_A = json.load(open("fat_question.json"))    # Arm A: one vague question
-ITEMS = json.load(open("mini_set.json"))["items"]
+# Paths are anchored to the repo root, so this runs from any cwd.
+ROOT    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA    = os.path.join(ROOT, "data")
+RESULTS = os.path.join(ROOT, "results")
+
+LOG   = open(os.path.join(RESULTS, "h4_runs.jsonl"), "a")
+
+Q_B = json.load(open(os.path.join(DATA, "questions_v1.json")))   # Arm B: frozen atomic set
+Q_A = json.load(open(os.path.join(DATA, "fat_question.json")))   # Arm A: one vague question
+ITEMS = json.load(open(os.path.join(DATA, "mini_set.json")))["items"]
 
 
 def call_api(questions, item):

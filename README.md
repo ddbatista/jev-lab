@@ -34,22 +34,40 @@ this lab tests.
 ## What's here
 
 ```
-questions_v1.json          frozen atomic question set (criteria = the security
-                           boundary; versioned, never interpolated at runtime)
-mini_set.json              10-item diagnostic routing set, ground truth frozen
-                           before any call (one property per item)
-FREEZE.sha256               hashes of the frozen artifacts
-fat_question.json          the deliberate anti-pattern: one vague "is this
-                           dangerous?" question (the baseline Arm A)
-decomposition_h4.py        H4: Arm A (fat question) vs Arm B (4 atomic + code)
-h4_runs.jsonl              both H4 runs, full answers + latency + token usage
-jev-decision.sh            H2 hello-decision curl (4 questions, 1 call)
-init-nould.sh               H1 first-touch curl
-jev-adversarial-detection.sh  H3.5 jailbreak payloads + mitigation protocol
-jev-multiple-scenarios.md  H3 calibration probe design (stability + gradient)
-judge.py                   H5: the harness — Judge protocol, JevJudge +
-                           ClaudeJudge, one-line swap, same composition code
+judge.py                        H5: the harness — Judge protocol, JevJudge +
+                                ClaudeJudge, one-line swap, same composition code
+
+data/                           frozen inputs — treated like code, never built
+                                from runtime data
+  questions_v1.json             the atomic question set (criteria = the security
+                                boundary; versioned, never interpolated)
+  fat_question.json             the deliberate anti-pattern: one vague "is this
+                                dangerous?" question (H4 baseline, Arm A)
+  mini_set.json                 10-item diagnostic routing set, ground truth
+                                frozen before any call (one property per item)
+  test_set_v1.json              20-item statistical set for H7 (safe / hostile /
+                                ambiguous, 2 members per property)
+  tune_set.json                 held-out tuning split — thresholds are tuned
+                                here, never on the set that gets reported
+  FREEZE.sha256                 hashes of all five; `cd data && sha256sum -c`
+
+experiments/                    one file per H-item, in order
+  h1_first_touch.sh             first curl against the API
+  h2_hello_decision.sh          hello-decision (4 questions, 1 call)
+  h3_calibration_probe.md       calibration probe design (stability + gradient)
+  h3_5_adversarial.sh           jailbreak payloads + mitigation protocol
+  h4_decomposition.py           Arm A (fat question) vs Arm B (4 atomic + code)
+  h7_analysis.py                Jev vs Claude: accuracy, ECE/Brier/AUROC,
+                                McNemar, bootstrap CIs (`--selftest` included)
+
+results/                        run artifacts (JSONL, one row per decision)
+  h4_runs.jsonl                 both H4 arms, full answers + latency + tokens
 ```
+
+Layout rules: **`data/` is frozen and hashed, `experiments/` is append-only
+(one file per H-item, never edited after its run), `results/` is generated.**
+`judge.py` resolves bare `--set` names against `data/` and bare `--log` names
+against `results/`, so every command below works from the repo root.
 
 ## Results so far (Day 1: feel the model)
 
@@ -106,9 +124,23 @@ function, so a comparison measures the judges, not the routing code.
 
 ```bash
 export TYPESAFE_API_KEY=...     # and/or ANTHROPIC_API_KEY=...
+
+# diagnostic set (10 items)
 python3 judge.py --judge jev    --set mini_set.json
 python3 judge.py --judge claude --set mini_set.json
+
+# one-off call
 python3 judge.py --judge jev --call '{"tool":"read_file","args":{"path":"/etc/passwd"}}'
+
+# H7: the paired comparison + analysis
+python3 judge.py --judge jev    --set test_set_v1.json --log h7_jev.jsonl
+python3 judge.py --judge claude --set test_set_v1.json --log h7_claude.jsonl
+python3 experiments/h7_analysis.py results/h7_jev.jsonl results/h7_claude.jsonl \
+        --out results/h7_report.md
+
+# integrity + metric self-checks (no API key needed)
+cd data && sha256sum -c FREEZE.sha256 && cd ..
+python3 experiments/h7_analysis.py --selftest
 ```
 
 Pure stdlib. Every decision is logged to JSONL with model version, latency,
@@ -116,12 +148,18 @@ tokens, dropped state fields, and abstentions.
 
 ## Roadmap
 
-- [ ] **H6** — 20-item statistical routing set (safe/hostile/ambiguous, 2
-      members per property, tuning split held out)
-- [ ] **H7** — JevJudge vs ClaudeJudge: accuracy, confidence separation,
-      ECE, Brier, rank-AUROC, McNemar on paired verdicts. This is the data
-      that justifies the Rego threshold bands (act ≥ 0.9, review 0.5–0.9)
-      with evidence
+- [x] **H1–H4** — first touch, hello-decision, calibration probe design,
+      decomposition test (results above)
+- [x] **H3.5** — adversarial probe + state-allowlist mitigation
+- [x] **H5** — the harness (`judge.py`): one interface, two providers
+- [x] **H6** — 20-item statistical routing set (safe/hostile/ambiguous, 2
+      members per property) + held-out tuning split, both frozen and hashed
+- [ ] **H7** — *next up.* The analysis script (`experiments/h7_analysis.py`)
+      is written and self-tested; what's left is running both judges over
+      `test_set_v1.json` and generating the report: accuracy, confidence
+      separation, ECE, Brier, rank-AUROC, McNemar on paired verdicts. This is
+      the data that justifies the Rego threshold bands (act ≥ 0.9, review
+      0.5–0.9) with evidence
 - [ ] **H8** — NOTES.md + writeup of where Jev's jagged edges held vs. broke
 - [ ] Then: the OPA/Rego policy layer — judge emits `{label, confidence,
       checks}` → Rego routes (thresholds in data, fail-closed, `opa test`

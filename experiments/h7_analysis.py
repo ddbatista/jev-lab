@@ -13,11 +13,12 @@ Reads the JSONL logs written by judge.py, dedupes to the latest row per
 
 Stdlib only. `--selftest` checks every metric against hand-computed values.
 
-Usage:
+Usage (from the repo root):
   python3 judge.py --judge jev    --set test_set_v1.json --log h7_jev.jsonl
   python3 judge.py --judge claude --set test_set_v1.json --log h7_claude.jsonl
-  python3 analyze_h7.py h7_jev.jsonl h7_claude.jsonl --out h7_report.md
-  python3 analyze_h7.py --selftest
+  python3 experiments/h7_analysis.py results/h7_jev.jsonl results/h7_claude.jsonl \
+          --out results/h7_report.md
+  python3 experiments/h7_analysis.py --selftest
 """
 
 import argparse
