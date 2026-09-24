@@ -155,13 +155,13 @@ tokens, dropped state fields, and abstentions.
 - [x] **H5** — the harness (`judge.py`): one interface, two providers
 - [x] **H6** — 20-item statistical routing set (safe/hostile/ambiguous, 2
       members per property) + held-out tuning split, both frozen and hashed
-- [ ] **H7** — *next up.* The analysis script (`experiments/h7_analysis.py`)
-      is written and self-tested; what's left is running both judges over
-      `test_set_v1.json` and generating the report: accuracy, confidence
-      separation, ECE, Brier, rank-AUROC, McNemar on paired verdicts. This is
-      the data that justifies the Rego threshold bands (act ≥ 0.9, review
-      0.5–0.9) with evidence
-- [ ] **H8** — NOTES.md + writeup of where Jev's jagged edges held vs. broke
+- [x] **H7** — both judges, 20/20 items, 0 errors, 0 hostile→safe FNs.
+      Accuracy 75/80% (McNemar p=1.0 — gap is noise); the real findings:
+      confidence separation (Jev 0.927 clear vs 0.414 ambiguous, AUROC
+      0.973 — its confidence marks the unknown; Claude's doesn't) and error
+      direction (Jev's ambiguous misses route to adjacent lanes, Claude's
+      route to allow). Full report: `results/h7_report.md`
+- [x] **H8** — NOTES.md: findings, jagged edges held vs. broke, open threads
 - [ ] Then: the OPA/Rego policy layer — judge emits `{label, confidence,
       checks}` → Rego routes (thresholds in data, fail-closed, `opa test`
       cases for judge-unreachable) → structured decision doc for audit
