@@ -180,18 +180,21 @@ class JevJudge:
         except Exception as e:  # fail-closed: never return "allow" on error
             return _fail("gate", e, state, dropped)
         lat = round((time.perf_counter() - t0) * 1000, 1)
-
-        a = resp["answers"]
-        answers = {
-            "verdict_probabilities": a["verdict"]["probabilities"],
-            "checks": {
-                "touches_credentials": a["touches_credentials"]["noul"],
-                "outside_repo": a["outside_repo"]["noul"],
-            },
-            "confidence": a["verdict"]["confidence"],
-        }
-        verdict, abstained = route(answers)
-        sev = a["severity"]["score"]
+        try:
+            a = resp["answers"]
+            answers = {
+                "verdict_probabilities": a["verdict"]["probabilities"],
+                "checks": {
+                    "touches_credentials": a["touches_credentials"]["noul"],
+                    "outside_repo": a["outside_repo"]["noul"],
+                },
+                "confidence": a["verdict"]["confidence"],
+            }
+            verdict, abstained = route(answers)
+            sev = a["severity"]["score"]
+            sev_legend = a["severity"].get("legend")
+        except Exception as e:  # malformed/missing answers = fail-closed
+            return _fail("gate", e, state, dropped)
         return {
             "verdict": verdict,
             "severity": sev,
@@ -259,19 +262,24 @@ class ClaudeJudge:
         except Exception as e:  # fail-closed
             return _fail("gate", e, state, dropped)
         lat = round((time.perf_counter() - t0) * 1000, 1)
-
-        text = resp["content"][0]["text"].strip()
         try:
+            text = "".join(b.get("text", "") for b in resp["content"]
+                           if b.get("type") == "text").strip()
+            if not text:
+                raise ValueError("reply contained no text block")
             parsed = _extract_json(text)
             sev = float(parsed["severity"])
             answers = {
-                "verdict_probabilities": parsed["verdict_probabilities"],
-                "checks": parsed["checks"],
+                "verdict_probabilities": {k: float(v) for k, v in
+                                          parsed["verdict_probabilities"].items()},
+                "checks": {k: float(v) for k, v in parsed["checks"].items()},
                 "confidence": float(parsed["confidence"]),
             }
+            # route() stays inside the guard: a bad-typed reply (e.g. checks
+            # as strings) must fail closed, never crash the run.
+            verdict, abstained = route(answers)
         except Exception as e:  # malformed reply = judge failure = fail-closed
             return _fail("gate", e, state, dropped)
-        verdict, abstained = route(answers)
         return {
             "verdict": verdict,
             "severity": sev,
@@ -345,16 +353,24 @@ def run_set(judge: Judge, items: list, log_path: str) -> list:
         call = {"tool": item["tool"], "args": item["args"],
                 "cwd": item.get("cwd", DEFAULT_CWD),
                 "role": item.get("role", DEFAULT_ROLE)}
-        res = judge.decide(call)
+        try:
+            res = judge.decide(call)
+        except Exception as e:
+            # last-resort guard: a provider bug costs ONE gated item, never
+            # the run. (Seen live: three Claude runs died silently at item 18
+            # -- no row, no error -- because an exception escaped decide().)
+            res = _fail("gate", e, {"tool": item.get("tool"),
+                                    "args": item.get("args")}, [])
         row = {"ts": time.time(), "judge": judge.name, "item": item["id"],
                "truth": item.get("count_as") or item.get("truth"),
                **{k: v for k, v in res.items() if k != "raw"},
                "raw": res.get("raw")}
         log.write(json.dumps(row) + "\n")
+        log.flush()          # a row is durable the moment it's scored
         rows.append(row)
         print(f"item {item['id']:>2}  truth={row['truth']:<8} "
               f"{res['verdict']:<8} conf={res['confidence']:.2f} "
-              f"({res['latency_ms']} ms)"
+              f"({res['latency_ms'] if res['latency_ms'] is not None else 'n/a'} ms)"
               + (f"  ABSTAINED={res['abstained']}" if res["abstained"] else "")
               + (f"  ERROR={res['error']}" if res.get("error") else ""))
     log.close()
