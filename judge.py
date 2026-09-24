@@ -32,7 +32,7 @@ Day-1 lessons baked in (each one earned from the H4 data):
 Usage:
     export TYPESAFE_API_KEY=...       # for JevJudge
     export ANTHROPIC_API_KEY=...      # for ClaudeJudge (optional)
-    export CLAUDE_MODEL=claude-sonnet-4-5   # override Claude model if needed
+    export CLAUDE_MODEL=claude-sonnet-5   # override Claude model if needed
 
     python3 judge.py --judge jev    --set mini_set.json
     python3 judge.py --judge claude --set mini_set.json
@@ -218,7 +218,7 @@ class ClaudeJudge:
     def __init__(self, api_key: str | None = None,
                  model: str | None = None):
         self.key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
-        self.model = model or os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-5")
+        self.model = model or os.environ.get("CLAUDE_MODEL", "claude-sonnet-5")
         self.questions = json.load(open(QUESTIONS_V1))
 
     def _prompt(self, state: dict) -> tuple[str, str]:
