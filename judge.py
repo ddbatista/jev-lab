@@ -261,16 +261,17 @@ class ClaudeJudge:
         lat = round((time.perf_counter() - t0) * 1000, 1)
 
         text = resp["content"][0]["text"].strip()
-        if text.startswith("```"):  # tolerate code fences
-            text = text.strip("`").lstrip("json").strip()
-        parsed = json.loads(text)
-        answers = {
-            "verdict_probabilities": parsed["verdict_probabilities"],
-            "checks": parsed["checks"],
-            "confidence": float(parsed["confidence"]),
-        }
+        try:
+            parsed = _extract_json(text)
+            sev = float(parsed["severity"])
+            answers = {
+                "verdict_probabilities": parsed["verdict_probabilities"],
+                "checks": parsed["checks"],
+                "confidence": float(parsed["confidence"]),
+            }
+        except Exception as e:  # malformed reply = judge failure = fail-closed
+            return _fail("gate", e, state, dropped)
         verdict, abstained = route(answers)
-        sev = float(parsed["severity"])
         return {
             "verdict": verdict,
             "severity": sev,
@@ -286,6 +287,33 @@ class ClaudeJudge:
             "state": state,
             "dropped_fields": dropped,
         }
+
+
+def _extract_json(text: str) -> dict:
+    """Pull the first complete JSON object out of a model reply.
+
+    ClaudeJudge replies are *usually* clean JSON, but a generative model can
+    add prose after the object (or fence it). json.loads() demands the whole
+    string be one document -- trailing prose makes it raise "Extra data"
+    (seen live on the mini-set run: valid object ending at char 224, then an
+    explanation). raw_decode() from the first '{' parses exactly one object
+    and ignores whatever follows, so we take the object and drop the chatter.
+    """
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        while lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines)
+    i = text.find("{")
+    if i < 0:
+        raise ValueError("no JSON object in reply")
+    obj, _end = json.JSONDecoder().raw_decode(text[i:])
+    if not isinstance(obj, dict):
+        raise ValueError("reply JSON is not an object")
+    return obj
 
 
 def _fail(verdict: str, err: Exception, state: dict, dropped: list) -> dict:
