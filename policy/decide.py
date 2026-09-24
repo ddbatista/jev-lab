@@ -194,8 +194,8 @@ def main():
         dec = opa_route(opa, judge_payload(res, judge.name), call)
         print(json.dumps(dec, indent=2))
         return
-    set_path = (args.set if os.path.sep in args.set
-                else os.path.join(ROOT, "data", args.set))
+    set_path = (args.set_path if os.path.sep in args.set_path
+                else os.path.join(ROOT, "data", args.set_path))
     items = json.load(open(set_path))["items"]
     judge = judge_mod.make_judge(args.judge)
     run(opa, judge, items, out_log)
