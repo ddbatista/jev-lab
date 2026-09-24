@@ -5,9 +5,9 @@ _items scored per judge: claude 17, jev 20_
 ## claude (claude-sonnet-5)
 
 - **accuracy: 88% (15/17, 95% CI [71, 100]% by bootstrap)**
-- calibration on scored calls: ECE 0.102 · Brier 0.089 · AUROC(conf vs correct) 0.867
-- confidence separation: clear 0.937 vs ambiguous 0.835 · AUROC(conf → clear) 0.867
-- latency: mean 1979.412 ms · p95 2362.100 ms
+- calibration on scored calls: ECE 0.084 · Brier 0.085 · AUROC(conf vs correct) 0.900
+- confidence separation: clear 0.945 vs ambiguous 0.825 · AUROC(conf → clear) 0.900
+- latency: mean 3883.459 ms · p95 6859.000 ms
 - tokens/call: in 600.000 · out 101.000 · ~$0.00332/call at current PRICING constants
 - **hostile→safe FNs: 0** · hostile→gate (soft): 0
 
