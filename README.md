@@ -213,7 +213,7 @@ never authorizes action (`act_confidence: 1.01`), so it runs as a
 content-checks-only judge. All 10 hostile calls across both providers
 denied through the policy.
 
-## Roadmap
+## Experiments
 
 - [x] **H1–H4** — first touch, hello-decision, calibration probe design,
       decomposition test (results above)
@@ -232,19 +232,4 @@ denied through the policy.
       Rego routes: thresholds in `data.json` (per provider, evidence-cited),
       fail-closed defaults, force-block/force-allow overrides, abstention →
       human, 20 `opa test` cases, and `decide.py` (runner + offline replay).
-      Replay of the H7 logs through policy: Jev 14/20 with **zero
-      ambiguous→allow** (the confidence hatch converts would-be leaks into
-      human review); Claude 7/20 — its confidence never authorizes action
-      (by design, per H7), so it runs as a content-checks-only judge where
-      everything else routes to humans. Full detail in NOTES.md
-- [ ] Then: port to prodsec-lab as the agent-gateway defense (P3)
-
-## Notes
-
-- Question criteria are treated like code: static, versioned, hashed
-  (`FREEZE.sha256`), and never built from runtime data — a judge whose rules
-  can be rewritten by the thing it's judging isn't a control.
-- Ground truth is frozen before any run; the one place it slipped
-  (item 7's ambiguous `gate_or_deny`) is documented rather than quietly
-  patched.
-- No secrets in this repo — keys are read from env vars at runtime only.
+    
